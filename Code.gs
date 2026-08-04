@@ -82,6 +82,8 @@ function doPost(e) {
     else if (action === 'bulkDeleteByFecha')    result = bulkDeleteByFecha(body.fechaPrefix);
     else if (action === 'repairDates')          result = repairDates();
     else if (action === 'migrateAddCuenta')     result = migrateAddCuenta();
+    else if (action === 'bulkSaveFudoVentas')   result = bulkSaveFudoVentas(body.data);
+    else if (action === 'bulkDeleteFudoByRange') result = bulkDeleteFudoByRange(body.desde, body.hasta);
     else result = { error: 'Acción no reconocida' };
   } catch (err) {
     result = { error: err.message };
@@ -147,6 +149,7 @@ function getAll() {
     movimientos: sheetToObjects('movimientos'),
     categorias:  sheetToObjects('categorias'),
     cierres:     sheetToObjects('cierres'),
+    fudoVentas:  sheetToObjects('fudo_ventas'),
   };
 }
 
@@ -326,6 +329,46 @@ function fechaToText(v) {
     return Utilities.formatDate(v, 'GMT-3', 'yyyy-MM-dd');
   }
   return String(v);
+}
+
+// ── VENTAS FUDO (solo referencia, no afecta movimientos) ──
+const FUDO_HEADERS = ['fecha','categoria','subcategoria','producto','cantidad','monto'];
+
+// Inserta muchas filas de ventas de Fudo en una sola escritura.
+function bulkSaveFudoVentas(dataArray) {
+  if (!dataArray || !dataArray.length) return { ok: true, count: 0 };
+  const sheet = getOrCreateSheet('fudo_ventas', FUDO_HEADERS);
+  const fechaIdx = FUDO_HEADERS.indexOf('fecha');
+  const startRow = sheet.getLastRow() + 1;
+  const newRows = dataArray.map(data => FUDO_HEADERS.map(h => data[h] !== undefined ? data[h] : ''));
+  sheet.getRange(startRow, fechaIdx + 1, newRows.length, 1).setNumberFormat('@');
+  sheet.getRange(startRow, 1, newRows.length, FUDO_HEADERS.length).setValues(newRows);
+  return { ok: true, count: newRows.length };
+}
+
+// Borra las ventas de Fudo entre dos fechas (YYYY-MM-DD, inclusive), para
+// poder re-importar un período sin duplicar si se vuelve a cargar el mismo reporte.
+function bulkDeleteFudoByRange(desde, hasta) {
+  const sheet = getSheet('fudo_ventas');
+  if (!sheet || !desde || !hasta) return { ok: true, deleted: 0 };
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const fechaIdx = headers.indexOf('fecha');
+  const keep = [headers];
+  let deleted = 0;
+  for (let i = 1; i < data.length; i++) {
+    const f = fechaToText(data[i][fechaIdx]);
+    if (f >= desde && f <= hasta) deleted++;
+    else keep.push(data[i]);
+  }
+  sheet.clearContents();
+  if (keep.length) {
+    sheet.getRange(1, 1, keep.length, headers.length).setValues(keep);
+    if (keep.length > 1) {
+      sheet.getRange(2, fechaIdx + 1, keep.length - 1, 1).setNumberFormat('@');
+    }
+  }
+  return { ok: true, deleted };
 }
 
 // ── CATEGORIAS ────────────────────────────────

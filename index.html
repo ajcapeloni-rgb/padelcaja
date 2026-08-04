@@ -153,6 +153,7 @@ tbody tr:last-child td{border-bottom:none}
       <button class="tab" data-tab="cierre">Cierre de Caja</button>
       <button class="tab" data-tab="cat">Categorías</button>
       <button class="tab" data-tab="rep">Reportes</button>
+      <button class="tab" data-tab="fudo">Ventas Fudo</button>
     </div>
   </div>
 
@@ -280,6 +281,24 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div class="sc" style="margin-top:12px"><div class="mtitle">Por medio de pago</div><div id="rMedio"></div></div>
   </div>
+
+  <!-- ═══ VENTAS FUDO (referencia, no afecta movimientos) ═══ -->
+  <div id="fudo" class="sec">
+    <div class="sechdr">
+      <h2>Ventas Fudo</h2>
+      <input type="month" id="fudoMes" onchange="renderFudo()">
+    </div>
+    <div class="ntag" style="display:inline-flex;margin-bottom:12px;font-size:12px;color:var(--t3)">Datos de referencia importados de Fudo (no modifican los movimientos de caja)</div>
+    <div class="grid3">
+      <div class="sc stat bal"><div class="lbl">Cancha (Padel)</div><div class="val" id="fCancha">$0</div></div>
+      <div class="sc stat bal"><div class="lbl">Bar / Kiosco</div><div class="val" id="fBar">$0</div></div>
+      <div class="sc stat ing"><div class="lbl">Total ventas Fudo</div><div class="val" id="fTotal">$0</div></div>
+    </div>
+    <div class="grid2">
+      <div class="sc"><div class="mtitle">Por categoría</div><div id="fPorCat"></div></div>
+      <div class="sc"><div class="mtitle">Bar / Kiosco — detalle</div><div id="fBarDetalle"></div></div>
+    </div>
+  </div>
 </div>
 
 <!-- ═══ MODAL MOVIMIENTO ═══ -->
@@ -355,7 +374,7 @@ const API = 'https://script.google.com/macros/s/AKfycbwjtRUW28ZtQD8vWlrFW7vm5xDt
 const COLORS = ['#2563EB','#0D9488','#7C3AED','#D97706','#0891B2','#65A30D','#DC2626','#EA580C','#B45309','#BE185D','#9333EA','#991B1B','#4B5563','#57534E'];
 const MEDIOS = ['Efectivo','Transferencia','Tarjeta','MercadoPago','Otro'];
 
-let DB = { movimientos: [], categorias: [], cierres: [] };
+let DB = { movimientos: [], categorias: [], cierres: [], fudoVentas: [] };
 let movTipo = 'ingreso';
 let catTipo = 'ingreso';
 let catColor = COLORS[0];
@@ -510,6 +529,7 @@ async function loadAll(){
     DB.movimientos = (data.movimientos || []).filter(m=>m.id);
     DB.categorias  = (data.categorias  || []).filter(c=>c.id);
     DB.cierres     = (data.cierres     || []).filter(c=>c.fecha);
+    DB.fudoVentas  = (data.fudoVentas  || []).filter(f=>f.fecha);
     setSyncStatus('ok','Sincronizado ✓');
   }catch(err){
     setSyncStatus('err','Error de conexión');
@@ -525,6 +545,7 @@ function renderAll(){
   renderCierreHist();
   renderCategorias();
   renderReportes();
+  renderFudo();
 }
 
 // ═══════════════════════════════════════
@@ -930,6 +951,37 @@ function exportCSV(){
   const a = document.createElement('a');
   a.href = url; a.download = `padelcaja_${mes}.csv`; a.click();
   URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════
+//  VENTAS FUDO (referencia, solo lectura)
+// ═══════════════════════════════════════
+function currentFudoMonth(){
+  const inp = document.getElementById('fudoMes');
+  if(!inp.value) inp.value = todayStr().slice(0,7);
+  return inp.value;
+}
+function renderFudo(){
+  const inp = document.getElementById('fudoMes');
+  if(!inp) return;
+  const mes = currentFudoMonth();
+  const ventas = DB.fudoVentas.filter(f=>monthKey(f.fecha)===mes);
+  let cancha=0, bar=0;
+  const porCat={};
+  ventas.forEach(f=>{
+    const monto = Number(f.monto)||0;
+    porCat[f.categoria]=(porCat[f.categoria]||0)+monto;
+    if(f.categoria==='Padel') cancha+=monto; else bar+=monto;
+  });
+  document.getElementById('fCancha').textContent = fmt(cancha);
+  document.getElementById('fBar').textContent = fmt(bar);
+  document.getElementById('fTotal').textContent = fmt(cancha+bar);
+  document.getElementById('fPorCat').innerHTML = barList(porCat, cancha+bar, ()=> '#2563EB');
+  const porCatBar = {};
+  ventas.filter(f=>f.categoria!=='Padel').forEach(f=>{
+    porCatBar[f.categoria]=(porCatBar[f.categoria]||0)+(Number(f.monto)||0);
+  });
+  document.getElementById('fBarDetalle').innerHTML = barList(porCatBar, bar, ()=> '#D97706');
 }
 
 // ═══════════════════════════════════════
