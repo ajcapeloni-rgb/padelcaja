@@ -969,28 +969,61 @@ function currentFudoMonth(){
   if(!inp.value) inp.value = todayStr().slice(0,7);
   return inp.value;
 }
+let fudoExpanded = new Set(JSON.parse(localStorage.getItem('padelcaja_fudo_expanded') || '[]'));
+function toggleFudoCat(cat){
+  if(fudoExpanded.has(cat)) fudoExpanded.delete(cat); else fudoExpanded.add(cat);
+  localStorage.setItem('padelcaja_fudo_expanded', JSON.stringify([...fudoExpanded]));
+  renderFudo();
+}
+function catLabel(cat){
+  return String(cat).toLowerCase().split(' ').map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+}
+// Igual que barList, pero cada fila es clickeable y despliega el detalle
+// por producto de esa categoría (usa los items crudos, no un objeto ya sumado).
+function barListExpandable(items, total, colorFn){
+  const porCat = {}, porCatProd = {};
+  items.forEach(f=>{
+    const monto = Number(f.monto)||0;
+    porCat[f.categoria] = (porCat[f.categoria]||0) + monto;
+    porCatProd[f.categoria] = porCatProd[f.categoria] || {};
+    porCatProd[f.categoria][f.producto] = (porCatProd[f.categoria][f.producto]||0) + monto;
+  });
+  const entries = Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
+  if(!entries.length) return `<div class="empty">Sin datos este mes</div>`;
+  return entries.map(([cat,v])=>{
+    const pct = total>0 ? Math.round(v/total*100) : 0;
+    const open = fudoExpanded.has(cat);
+    const safeCat = cat.replace(/'/g,"\\'");
+    const prodEntries = Object.entries(porCatProd[cat]||{}).sort((a,b)=>b[1]-a[1]);
+    const prodHtml = prodEntries.map(([p,pv])=>{
+      const ppct = v>0 ? Math.round(pv/v*100) : 0;
+      return `<div class="barrow" style="margin-left:16px;margin-bottom:6px">
+        <div class="bhead" style="font-size:12px"><span>${p||'(sin nombre)'}</span><b>${fmt(pv)} (${ppct}%)</b></div>
+        <div class="bartrack" style="height:5px"><div class="barfill" style="width:${ppct}%;background:${colorFn(cat)}"></div></div>
+      </div>`;
+    }).join('');
+    return `<div class="barrow" style="cursor:pointer" onclick="toggleFudoCat('${safeCat}')">
+      <div class="bhead"><span>${open?'▾':'▸'} ${catLabel(cat)}</span><b>${fmt(v)} (${pct}%)</b></div>
+      <div class="bartrack"><div class="barfill" style="width:${pct}%;background:${colorFn(cat)}"></div></div>
+    </div>${open ? `<div style="margin-bottom:10px">${prodHtml}</div>` : ''}`;
+  }).join('');
+}
 function renderFudo(){
   const inp = document.getElementById('fudoMes');
   if(!inp) return;
   const mes = currentFudoMonth();
   const ventas = DB.fudoVentas.filter(f=>monthKey(f.fecha)===mes);
-  let cancha=0, bar=0;
-  const porProductoPadel={}, porCatBar={};
-  ventas.forEach(f=>{
-    const monto = Number(f.monto)||0;
-    if(f.categoria==='Padel'){
-      cancha+=monto;
-      porProductoPadel[f.producto]=(porProductoPadel[f.producto]||0)+monto;
-    } else {
-      bar+=monto;
-      porCatBar[f.categoria]=(porCatBar[f.categoria]||0)+monto;
-    }
-  });
+  const padelItems = ventas.filter(f=>f.categoria==='Padel');
+  const barItems = ventas.filter(f=>f.categoria!=='Padel');
+  const cancha = padelItems.reduce((s,f)=>s+(Number(f.monto)||0),0);
+  const bar = barItems.reduce((s,f)=>s+(Number(f.monto)||0),0);
   document.getElementById('fCancha').textContent = fmt(cancha);
   document.getElementById('fBar').textContent = fmt(bar);
   document.getElementById('fTotal').textContent = fmt(cancha+bar);
+  const porProductoPadel = {};
+  padelItems.forEach(f=> porProductoPadel[f.producto] = (porProductoPadel[f.producto]||0) + (Number(f.monto)||0));
   document.getElementById('fPadelDetalle').innerHTML = barList(porProductoPadel, cancha, ()=> '#2563EB');
-  document.getElementById('fBarDetalle').innerHTML = barList(porCatBar, bar, ()=> '#D97706');
+  document.getElementById('fBarDetalle').innerHTML = barListExpandable(barItems, bar, ()=> '#D97706');
 }
 
 // ═══════════════════════════════════════
