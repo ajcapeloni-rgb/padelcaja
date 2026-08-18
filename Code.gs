@@ -84,6 +84,8 @@ function doPost(e) {
     else if (action === 'migrateAddCuenta')     result = migrateAddCuenta();
     else if (action === 'bulkSaveFudoVentas')   result = bulkSaveFudoVentas(body.data);
     else if (action === 'bulkDeleteFudoByRange') result = bulkDeleteFudoByRange(body.desde, body.hasta);
+    else if (action === 'bulkSaveCategorias')    result = bulkSaveCategorias(body.data);
+    else if (action === 'bulkUpdateMovCategoria') result = bulkUpdateMovCategoria(body.data);
     else result = { error: 'Acción no reconocida' };
   } catch (err) {
     result = { error: err.message };
@@ -392,6 +394,49 @@ function saveCategoria(data) {
 function deleteCategoria(id) {
   deleteRowByField('categorias', 'id', id);
   return { ok: true };
+}
+
+// Crea muchas categorias de una sola vez (por ej. al subdividir una
+// categoria vieja en varias mas especificas).
+function bulkSaveCategorias(dataArray) {
+  if (!dataArray || !dataArray.length) return { ok: true, count: 0 };
+  const sheet = getOrCreateSheet('categorias', CAT_HEADERS);
+  const rows = dataArray.map(d => {
+    if (!d.id) d.id = Utilities.getUuid();
+    return CAT_HEADERS.map(h => d[h] !== undefined ? d[h] : '');
+  });
+  const startRow = sheet.getLastRow() + 1;
+  sheet.getRange(startRow, 1, rows.length, CAT_HEADERS.length).setValues(rows);
+  return { ok: true, count: rows.length, ids: dataArray.map(d => d.id) };
+}
+
+// Recategoriza muchos movimientos existentes de una sola vez, por id
+// (por ej. al subdividir una categoria vieja en varias mas especificas).
+// updates: [{id, categoria, nota (opcional, para corregir la nota tambien)}]
+function bulkUpdateMovCategoria(updates) {
+  if (!updates || !updates.length) return { ok: true, updated: 0 };
+  const sheet = getSheet('movimientos');
+  if (!sheet) return { ok: true, updated: 0 };
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idIdx = headers.indexOf('id');
+  const catIdx = headers.indexOf('categoria');
+  const notaIdx = headers.indexOf('nota');
+  const fechaIdx = headers.indexOf('fecha');
+  const byId = {};
+  updates.forEach(u => { byId[u.id] = u; });
+  let updated = 0;
+  for (let i = 1; i < data.length; i++) {
+    const u = byId[data[i][idIdx]];
+    if (u) {
+      data[i][catIdx] = u.categoria;
+      if (u.nota !== undefined) data[i][notaIdx] = u.nota;
+      updated++;
+    }
+  }
+  sheet.getRange(1, 1, data.length, headers.length).setValues(data);
+  sheet.getRange(2, fechaIdx + 1, data.length - 1, 1).setNumberFormat('@');
+  return { ok: true, updated };
 }
 
 // ── CIERRES DE CAJA ───────────────────────────
