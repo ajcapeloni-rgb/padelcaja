@@ -390,7 +390,7 @@ let PIN = localStorage.getItem('padelcaja_pin') || '';
 let excludedCats = new Set(JSON.parse(localStorage.getItem('padelcaja_excluded_cats') || '[]'));
 
 // ═══════════════════════════════════════
-//  CUENTAS (AJ / Tomás / Julián / Agustín Macro / Agustín Familia)
+//  CUENTAS (AJ / Tomás / Julián / Agustín Macro / Agustín Familia / Caja Efectivo)
 // ═══════════════════════════════════════
 const CUENTAS = [
   { id: 'AJ', label: 'AJ' },
@@ -398,6 +398,7 @@ const CUENTAS = [
   { id: 'Julian', label: 'Julián' },
   { id: 'Agustin Macro', label: 'Agustín Macro' },
   { id: 'Agustin Familia', label: 'Agustín Familia' },
+  { id: 'Caja Efectivo', label: 'Caja Efectivo' },
 ];
 let cuentaFiltro = localStorage.getItem('padelcaja_cuenta_filtro') || 'todas';
 function movsCuenta(list){
