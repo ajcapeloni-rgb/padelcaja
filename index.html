@@ -410,6 +410,7 @@ const CUENTAS = [
   { id: 'Agustin Macro', label: 'Agustín Macro' },
   { id: 'Agustin Familia', label: 'Agustín Familia' },
   { id: 'Caja Efectivo', label: 'Caja Efectivo' },
+  { id: 'Cobro Directo Cliente', label: 'Cobro Directo Cliente' },
 ];
 let cuentaFiltro = localStorage.getItem('padelcaja_cuenta_filtro') || 'todas';
 function movsCuenta(list){
@@ -434,7 +435,7 @@ function renderCuentaSelectors(){
 //  cuentas y categorías de cada lado
 // ═══════════════════════════════════════
 const VISTAS = [
-  { id: 'factory', label: '🎾 Factory Padel', cuentas: ['AJ','Tomas','Julian','Agustin Macro','Caja Efectivo'] },
+  { id: 'factory', label: '🎾 Factory Padel', cuentas: ['AJ','Tomas','Julian','Agustin Macro','Caja Efectivo','Cobro Directo Cliente'] },
   { id: 'familia', label: '🏠 Agustín Familia', cuentas: ['Agustin Familia'] },
 ];
 let vistaActual = localStorage.getItem('padelcaja_vista') || 'factory';
