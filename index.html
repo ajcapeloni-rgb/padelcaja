@@ -32,6 +32,11 @@ body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--tx);paddin
 .acctab.on{background:var(--ac);color:#fff;font-weight:700;box-shadow:0 2px 10px rgba(37,99,235,.3)}
 .acctab:hover:not(.on){color:var(--tx);background:rgba(0,0,0,.05)}
 .tab:hover:not(.on){color:var(--tx);background:rgba(0,0,0,.05)}
+.vistatabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.vistatab{flex:1;min-width:160px;padding:14px 16px;font-size:15px;font-family:'Outfit',sans-serif;font-weight:700;border:1.5px solid var(--bd2);background:var(--bg2);border-radius:14px;cursor:pointer;color:var(--t2);transition:all .18s}
+.vistatab:hover:not(.on){background:rgba(0,0,0,.03);color:var(--tx)}
+.vistatab.on{background:var(--ac);color:#fff;border-color:var(--ac);box-shadow:0 4px 16px rgba(37,99,235,.35)}
+.vistanote{font-size:12px;color:var(--t3);margin-bottom:12px}
 .sec{display:none}
 .sec.on{display:block}
 .sc{border-radius:14px;padding:1rem;border:1px solid var(--bd);background:var(--bg2)}
@@ -159,6 +164,7 @@ tbody tr:last-child td{border-bottom:none}
 
   <!-- ═══ DASHBOARD ═══ -->
   <div id="dash" class="sec on">
+    <div class="vistatabs" id="vistaSelectorDash"></div>
     <div class="acctabs" id="cuentaSelectorDash"></div>
     <div class="tr2" id="soloNegocioToggleDash" onclick="toggleSoloNegocio()">
       <span class="slb">Solo negocio (excluir Retiro de Socio)</span>
@@ -198,12 +204,14 @@ tbody tr:last-child td{border-bottom:none}
         <button class="bc" onclick="document.getElementById('comprobanteInput').click()">📷 Comprobante</button>
       </div>
     </div>
+    <div class="vistanote" id="vistaNoteMov"></div>
     <div class="filbar">
       <div class="ff"><label>Desde</label><input type="date" id="fDesde"></div>
       <div class="ff"><label>Hasta</label><input type="date" id="fHasta"></div>
       <div class="ff"><label>Tipo</label><select id="fTipo"><option value="">Todos</option><option value="ingreso">Ingresos</option><option value="egreso">Egresos</option></select></div>
       <div class="ff"><label>Categoría</label><select id="fCat"><option value="">Todas</option></select></div>
       <div class="ff"><label>Cuenta</label><select id="fCuenta"><option value="">Todas</option></select></div>
+      <div class="ff"><label>Medio</label><select id="fMedio"><option value="">Todos</option></select></div>
       <button class="bc" onclick="limpiarFiltros()">Limpiar filtros</button>
     </div>
     <div class="tw"><table>
@@ -239,6 +247,7 @@ tbody tr:last-child td{border-bottom:none}
       <h2>Categorías</h2>
       <button class="bp" onclick="openCat()">+ Nueva categoría</button>
     </div>
+    <div class="vistanote" id="vistaNoteCat"></div>
     <div class="grid2">
       <div class="catcol"><h3>Ingresos</h3><div id="catIngList"></div></div>
       <div class="catcol"><h3>Egresos</h3><div id="catEgrList"></div></div>
@@ -254,6 +263,7 @@ tbody tr:last-child td{border-bottom:none}
         <button class="bc" onclick="exportCSV()">Exportar CSV</button>
       </div>
     </div>
+    <div class="vistanote" id="vistaNoteRep"></div>
     <div class="acctabs" id="cuentaSelectorRep"></div>
     <div class="tr2" id="soloNegocioToggleRep" onclick="toggleSoloNegocio()">
       <span class="slb">Solo negocio (excluir Retiro de Socio)</span>
@@ -325,9 +335,10 @@ tbody tr:last-child td{border-bottom:none}
     </div>
     <div class="fl"><label>Categoría</label><select id="movCategoria"></select></div>
     <div class="row2">
-      <div class="fl"><label>Cancha (opcional)</label><select id="movCancha"><option value="">N/A</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
+      <div class="fl"><label>Cuenta</label><select id="movCuenta"></select></div>
       <div class="fl"><label>Medio de pago</label><select id="movMedio"><option>Efectivo</option><option>Transferencia</option><option>Tarjeta</option><option>MercadoPago</option><option>Otro</option></select></div>
     </div>
+    <div class="fl"><label>Cancha (opcional)</label><select id="movCancha"><option value="">N/A</option><option>1</option><option>2</option><option>3</option><option>4</option></select></div>
     <div class="fl"><label>Nota (opcional)</label><input type="text" id="movNota" placeholder="Ej: Juan Pérez - cancha 2"></div>
     <div class="ma">
       <button class="bc" onclick="closeMov()">Cancelar</button>
@@ -410,11 +421,51 @@ function setCuentaFiltro(c){
   renderAll();
 }
 function cuentaSelectorHtml(){
+  const cs = vistaCuentas();
   const btn = (id, label) => `<button class="acctab ${cuentaFiltro===id?'on':''}" onclick="setCuentaFiltro('${id}')">${label}</button>`;
-  return btn('todas','Todas las cuentas') + CUENTAS.map(c=>btn(c.id, c.label)).join('');
+  return btn('todas','Todas las cuentas') + CUENTAS.filter(c=>cs.includes(c.id)).map(c=>btn(c.id, c.label)).join('');
 }
 function renderCuentaSelectors(){
   document.querySelectorAll('.acctabs').forEach(el=> el.innerHTML = cuentaSelectorHtml());
+}
+
+// ═══════════════════════════════════════
+//  VISTA (Factory Padel / Agustín Familia) — separa por completo
+//  cuentas y categorías de cada lado
+// ═══════════════════════════════════════
+const VISTAS = [
+  { id: 'factory', label: '🎾 Factory Padel', cuentas: ['AJ','Tomas','Julian','Agustin Macro','Caja Efectivo'] },
+  { id: 'familia', label: '🏠 Agustín Familia', cuentas: ['Agustin Familia'] },
+];
+let vistaActual = localStorage.getItem('padelcaja_vista') || 'factory';
+function vistaCuentas(){
+  const v = VISTAS.find(v=>v.id===vistaActual) || VISTAS[0];
+  return v.cuentas;
+}
+function movsVista(list){
+  const cs = vistaCuentas();
+  return list.filter(m => cs.includes(m.cuenta));
+}
+function catVista(c){
+  return c.vista || (String(c.nombre).indexOf('(Familia)')!==-1 ? 'familia' : 'factory');
+}
+function setVista(v){
+  vistaActual = v;
+  localStorage.setItem('padelcaja_vista', v);
+  cuentaFiltro = 'todas';
+  localStorage.setItem('padelcaja_cuenta_filtro', 'todas');
+  renderAll();
+}
+function vistaSelectorHtml(){
+  return VISTAS.map(v=>`<button class="vistatab ${vistaActual===v.id?'on':''}" onclick="setVista('${v.id}')">${v.label}</button>`).join('');
+}
+function renderVistaSelectors(){
+  document.querySelectorAll('.vistatabs').forEach(el=> el.innerHTML = vistaSelectorHtml());
+  const nota = `Mostrando: ${(VISTAS.find(v=>v.id===vistaActual)||VISTAS[0]).label} (cambiar en Dashboard)`;
+  ['vistaNoteMov','vistaNoteCat','vistaNoteRep'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.textContent = nota;
+  });
 }
 
 // ═══════════════════════════════════════
@@ -443,7 +494,7 @@ function toggleCatIncluded(nombre, checked){
   renderReportes();
 }
 function marcarTodasCats(marcar){
-  const egrCats = DB.categorias.filter(c=>c.tipo==='egreso');
+  const egrCats = DB.categorias.filter(c=>c.tipo==='egreso' && catVista(c)===vistaActual);
   egrCats.forEach(c=> marcar ? excludedCats.delete(c.nombre) : excludedCats.add(c.nombre));
   saveExcludedCats();
   updateSoloNegocioToggles();
@@ -462,7 +513,7 @@ function updateSoloNegocioToggles(){
 function renderCatChecklist(){
   const cont = document.getElementById('rCatChecklist');
   if(!cont) return;
-  const egrCats = DB.categorias.filter(c=>c.tipo==='egreso').sort((a,b)=>(a.orden||0)-(b.orden||0));
+  const egrCats = DB.categorias.filter(c=>c.tipo==='egreso' && catVista(c)===vistaActual).sort((a,b)=>(a.orden||0)-(b.orden||0));
   cont.innerHTML = egrCats.length ? egrCats.map(c=>{
     const checked = !excludedCats.has(c.nombre);
     const safe = c.nombre.replace(/'/g,"\\'");
@@ -549,6 +600,7 @@ async function loadAll(){
 }
 
 function renderAll(){
+  renderVistaSelectors();
   renderCategoriaSelects();
   renderDashboard();
   renderMovimientos();
@@ -578,7 +630,7 @@ function renderDashboard(){
   renderCuentaSelectors();
   const hoy = todayStr(), mes = monthKey(hoy);
   let hIng=0,hEgr=0,mIng=0,mEgr=0;
-  movsCuenta(movsNegocio(DB.movimientos)).forEach(m=>{
+  movsCuenta(movsVista(movsNegocio(DB.movimientos))).forEach(m=>{
     const monto = Number(m.monto)||0;
     if(m.fecha === hoy){ if(m.tipo==='ingreso') hIng+=monto; else hEgr+=monto; }
     if(monthKey(m.fecha) === mes){ if(m.tipo==='ingreso') mIng+=monto; else mEgr+=monto; }
@@ -590,7 +642,7 @@ function renderDashboard(){
   document.getElementById('dMesEgr').textContent = fmt(mEgr);
   document.getElementById('dMesBal').textContent = fmt(mIng-mEgr);
 
-  const ultimos = [...movsCuenta(movsNegocio(DB.movimientos))].sort((a,b)=> (b.fecha+b.ts).localeCompare(a.fecha+a.ts)).slice(0,10);
+  const ultimos = [...movsCuenta(movsVista(movsNegocio(DB.movimientos)))].sort((a,b)=> (b.fecha+b.ts).localeCompare(a.fecha+a.ts)).slice(0,10);
   const tbl = document.getElementById('dashTbl');
   tbl.innerHTML = ultimos.length ? ultimos.map(rowHtmlSimple).join('') : `<tr><td colspan="6" class="empty">Todavía no cargaste movimientos</td></tr>`;
 }
@@ -613,14 +665,20 @@ function renderCategoriaSelects(){
   const fCat = document.getElementById('fCat');
   const cur = fCat.value;
   fCat.innerHTML = '<option value="">Todas</option>' + DB.categorias
+    .filter(c=>catVista(c)===vistaActual)
     .slice().sort((a,b)=>(a.orden||0)-(b.orden||0))
     .map(c=>`<option value="${c.nombre}">${c.nombre} (${c.tipo==='ingreso'?'Ingreso':'Egreso'})</option>`).join('');
   fCat.value = cur;
 
   const fCuenta = document.getElementById('fCuenta');
   const curCuenta = fCuenta.value;
-  fCuenta.innerHTML = '<option value="">Todas</option>' + CUENTAS.map(c=>`<option value="${c.id}">${c.label}</option>`).join('');
+  fCuenta.innerHTML = '<option value="">Todas</option>' + CUENTAS.filter(c=>vistaCuentas().includes(c.id)).map(c=>`<option value="${c.id}">${c.label}</option>`).join('');
   fCuenta.value = curCuenta;
+
+  const fMedio = document.getElementById('fMedio');
+  const curMedio = fMedio.value;
+  fMedio.innerHTML = '<option value="">Todos</option>' + MEDIOS.map(m=>`<option value="${m}">${m}</option>`).join('');
+  fMedio.value = curMedio;
 }
 
 function filteredMovs(){
@@ -629,12 +687,14 @@ function filteredMovs(){
   const tipo = document.getElementById('fTipo').value;
   const cat = document.getElementById('fCat').value;
   const cuenta = document.getElementById('fCuenta').value;
-  return DB.movimientos.filter(m=>{
+  const medio = document.getElementById('fMedio').value;
+  return movsVista(DB.movimientos).filter(m=>{
     if(desde && m.fecha < desde) return false;
     if(hasta && m.fecha > hasta) return false;
     if(tipo && m.tipo !== tipo) return false;
     if(cat && m.categoria !== cat) return false;
     if(cuenta && m.cuenta !== cuenta) return false;
+    if(medio && m.medioPago !== medio) return false;
     return true;
   }).sort((a,b)=> (b.fecha+b.ts).localeCompare(a.fecha+a.ts));
 }
@@ -660,7 +720,7 @@ function renderMovimientos(){
   }).join('') : `<tr><td colspan="9" class="empty">No hay movimientos con estos filtros</td></tr>`;
 }
 
-['fDesde','fHasta','fTipo','fCat','fCuenta'].forEach(id=>{
+['fDesde','fHasta','fTipo','fCat','fCuenta','fMedio'].forEach(id=>{
   document.getElementById(id).addEventListener('input', renderMovimientos);
   document.getElementById(id).addEventListener('change', renderMovimientos);
 });
@@ -670,6 +730,7 @@ function limpiarFiltros(){
   document.getElementById('fTipo').value='';
   document.getElementById('fCat').value='';
   document.getElementById('fCuenta').value='';
+  document.getElementById('fMedio').value='';
   renderMovimientos();
 }
 
@@ -684,8 +745,13 @@ function setTipoMov(t){
 }
 function fillCategoriaOptions(){
   const sel = document.getElementById('movCategoria');
-  const cats = DB.categorias.filter(c=>c.tipo===movTipo).sort((a,b)=>(a.orden||0)-(b.orden||0));
+  const cats = DB.categorias.filter(c=>c.tipo===movTipo && catVista(c)===vistaActual).sort((a,b)=>(a.orden||0)-(b.orden||0));
   sel.innerHTML = cats.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('') || '<option value="">(Creá una categoría primero)</option>';
+}
+function fillCuentaOptions(){
+  const sel = document.getElementById('movCuenta');
+  const cs = CUENTAS.filter(c=>vistaCuentas().includes(c.id));
+  sel.innerHTML = cs.map(c=>`<option value="${c.id}">${c.label}</option>`).join('');
 }
 function openMov(tipo, mov){
   setTipoMov(tipo || 'ingreso');
@@ -695,6 +761,8 @@ function openMov(tipo, mov){
   document.getElementById('movMonto').value = mov ? mov.monto : '';
   fillCategoriaOptions();
   document.getElementById('movCategoria').value = mov ? mov.categoria : '';
+  fillCuentaOptions();
+  document.getElementById('movCuenta').value = mov ? mov.cuenta : (cuentaFiltro!=='todas' ? cuentaFiltro : vistaCuentas()[0]);
   document.getElementById('movCancha').value = mov ? (mov.cancha||'') : '';
   document.getElementById('movMedio').value = mov ? mov.medioPago : 'Efectivo';
   document.getElementById('movNota').value = mov ? (mov.nota||'') : '';
@@ -716,6 +784,7 @@ async function guardarMovimiento(){
     fecha: document.getElementById('movFecha').value || todayStr(),
     tipo: movTipo,
     categoria,
+    cuenta: document.getElementById('movCuenta').value,
     cancha: document.getElementById('movCancha').value,
     medioPago: document.getElementById('movMedio').value,
     monto,
@@ -839,8 +908,8 @@ function renderCierreHist(){
 //  CATEGORIAS
 // ═══════════════════════════════════════
 function renderCategorias(){
-  const ing = DB.categorias.filter(c=>c.tipo==='ingreso').sort((a,b)=>(a.orden||0)-(b.orden||0));
-  const egr = DB.categorias.filter(c=>c.tipo==='egreso').sort((a,b)=>(a.orden||0)-(b.orden||0));
+  const ing = DB.categorias.filter(c=>c.tipo==='ingreso' && catVista(c)===vistaActual).sort((a,b)=>(a.orden||0)-(b.orden||0));
+  const egr = DB.categorias.filter(c=>c.tipo==='egreso' && catVista(c)===vistaActual).sort((a,b)=>(a.orden||0)-(b.orden||0));
   const render = (arr) => arr.length ? arr.map(c=>`<div class="catitem">
       <span class="catdot" style="background:${c.color}"></span>
       <span class="nm">${c.nombre}</span>
@@ -874,7 +943,7 @@ function editCat(id){ const c = catById(id); if(c) openCat(c); }
 async function guardarCategoria(){
   const nombre = document.getElementById('catNombre').value.trim();
   if(!nombre){ tst('Ingresá un nombre'); return; }
-  const data = { id: document.getElementById('catId').value || undefined, nombre, tipo: catTipo, color: catColor, orden: DB.categorias.length+1 };
+  const data = { id: document.getElementById('catId').value || undefined, nombre, tipo: catTipo, color: catColor, orden: DB.categorias.length+1, vista: vistaActual };
   closeCat();
   tst('Guardando...');
   const r = await apiPost({ action:'saveCategoria', data });
@@ -909,7 +978,7 @@ function renderReportes(){
   renderCuentaSelectors();
   renderCatChecklist();
   const mes = currentRepMonth();
-  const movsMes = movsCuenta(DB.movimientos.filter(m=>monthKey(m.fecha)===mes));
+  const movsMes = movsCuenta(movsVista(DB.movimientos.filter(m=>monthKey(m.fecha)===mes)));
   const movs = movsNegocio(movsMes);
   let ing=0, egr=0;
   const porCatIng={}, porCatEgr={}, porMedio={};

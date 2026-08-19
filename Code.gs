@@ -86,6 +86,8 @@ function doPost(e) {
     else if (action === 'bulkDeleteFudoByRange') result = bulkDeleteFudoByRange(body.desde, body.hasta);
     else if (action === 'bulkSaveCategorias')    result = bulkSaveCategorias(body.data);
     else if (action === 'bulkUpdateMovCategoria') result = bulkUpdateMovCategoria(body.data);
+    else if (action === 'bulkFixFecha')          result = bulkFixFecha(body.cuenta, body.fechaVieja, body.fechaNueva);
+    else if (action === 'migrateAddVistaCategorias') result = migrateAddVistaCategorias();
     else result = { error: 'Acción no reconocida' };
   } catch (err) {
     result = { error: err.message };
@@ -374,7 +376,7 @@ function bulkDeleteFudoByRange(desde, hasta) {
 }
 
 // ── CATEGORIAS ────────────────────────────────
-const CAT_HEADERS = ['id','nombre','tipo','color','orden'];
+const CAT_HEADERS = ['id','nombre','tipo','color','orden','vista'];
 
 function saveCategoria(data) {
   const sheet = getOrCreateSheet('categorias', CAT_HEADERS);
@@ -437,6 +439,60 @@ function bulkUpdateMovCategoria(updates) {
   sheet.getRange(1, 1, data.length, headers.length).setValues(data);
   sheet.getRange(2, fechaIdx + 1, data.length - 1, 1).setNumberFormat('@');
   return { ok: true, updated };
+}
+
+// Cambia la fecha de todos los movimientos de una cuenta que tengan una
+// fecha vieja dada, a una fecha nueva (ej. corregir un error de carga sin
+// tener que traer/reenviar todo el dataset). Todo se hace en el servidor.
+function bulkFixFecha(cuenta, fechaVieja, fechaNueva) {
+  const sheet = getSheet('movimientos');
+  if (!sheet || !fechaVieja || !fechaNueva) return { ok: true, updated: 0 };
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const fechaIdx = headers.indexOf('fecha');
+  const cuentaIdx = headers.indexOf('cuenta');
+  let updated = 0;
+  for (let i = 1; i < data.length; i++) {
+    const f = fechaToText(data[i][fechaIdx]);
+    if (f === fechaVieja && (!cuenta || data[i][cuentaIdx] === cuenta)) {
+      data[i][fechaIdx] = fechaNueva;
+      updated++;
+    }
+  }
+  sheet.getRange(1, 1, data.length, headers.length).setValues(data);
+  sheet.getRange(2, fechaIdx + 1, data.length - 1, 1).setNumberFormat('@');
+  return { ok: true, updated };
+}
+
+// Migración única: le agrega la columna 'vista' a categorías que no la
+// tengan todavía. Las categorías cuyo nombre termina en "(Familia)" se
+// marcan vista='familia'; el resto vista='factory'.
+function migrateAddVistaCategorias() {
+  const sheet = getSheet('categorias');
+  if (!sheet) return { ok: true, migrated: 0 };
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 1) return { ok: true, migrated: 0 };
+  const headers = data[0];
+  if (headers.indexOf('vista') !== -1) return { ok: true, migrated: 0, already: true };
+
+  const nombreIdx = headers.indexOf('nombre');
+  const newHeaders = headers.slice();
+  newHeaders.push('vista');
+
+  const newRows = data.slice(1).map(row => {
+    const nombre = String(row[nombreIdx] || '');
+    const vista = nombre.indexOf('(Familia)') !== -1 ? 'familia' : 'factory';
+    const newRow = row.slice();
+    newRow.push(vista);
+    return newRow;
+  });
+
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+  if (newRows.length) {
+    sheet.getRange(2, 1, newRows.length, newHeaders.length).setValues(newRows);
+  }
+  return { ok: true, migrated: newRows.length };
 }
 
 // ── CIERRES DE CAJA ───────────────────────────
