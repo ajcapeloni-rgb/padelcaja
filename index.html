@@ -112,16 +112,17 @@ tbody tr:last-child td{border-bottom:none}
 .iswatch.on{border-color:var(--ac);background:var(--al);transform:scale(1.1)}
 .iswatch.none{font-size:11px;color:var(--t3);font-weight:700}
 .caticon{width:26px;height:26px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
-.catitem{padding:12px 14px;gap:14px;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:all .15s}
-.catitem:hover{box-shadow:0 4px 14px rgba(0,0,0,.08);transform:translateY(-1px)}
-.catitem .caticon{width:48px;height:48px;border-radius:15px;font-size:26px;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.06)}
-.catitem .nm{font-size:14.5px;font-weight:700}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--tx);color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:200}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.catcol{margin-bottom:18px}
 .catcol h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);margin-bottom:10px}
-.catitem{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid var(--bd);border-radius:10px;margin-bottom:8px;background:var(--bg2)}
-.catitem .catdot{width:12px;height:12px}
-.catitem .nm{flex:1;font-size:13px;font-weight:600}
+.catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:7px}
+.catcard{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px 7px;border:1px solid var(--bd);border-radius:12px;background:var(--bg2);cursor:pointer;text-align:center;transition:all .15s}
+.catcard:hover{box-shadow:0 3px 10px rgba(0,0,0,.08);transform:translateY(-1px)}
+.catcard .caticon{width:32px;height:32px;border-radius:10px;font-size:17px;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.06)}
+.catcard .nm{font-size:10px;font-weight:700;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.catcard .amt2{font-size:9.5px;color:var(--t3);font-weight:600;font-variant-numeric:tabular-nums}
+.catcard .rank{position:absolute;top:3px;left:5px;font-size:8.5px;font-weight:800;color:var(--t3)}
 .barrow{margin-bottom:10px}
 .barrow .bhead{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
 .barrow .bhead b{font-weight:700}
@@ -257,10 +258,7 @@ tbody tr:last-child td{border-bottom:none}
       <button class="bp" onclick="openCat()">+ Nueva categoría</button>
     </div>
     <div class="vistanote" id="vistaNoteCat"></div>
-    <div class="grid2">
-      <div class="catcol"><h3>Ingresos</h3><div id="catIngList"></div></div>
-      <div class="catcol"><h3>Egresos</h3><div id="catEgrList"></div></div>
-    </div>
+    <div id="catSections"></div>
   </div>
 
   <!-- ═══ REPORTES ═══ -->
@@ -926,16 +924,38 @@ function renderCierreHist(){
 // ═══════════════════════════════════════
 //  CATEGORIAS
 // ═══════════════════════════════════════
+function fmtShort(n){
+  n = Number(n)||0;
+  const abs = Math.abs(n);
+  if(abs>=1000000) return '$'+(n/1000000).toLocaleString('es-AR',{maximumFractionDigits:1})+'M';
+  if(abs>=1000) return '$'+Math.round(n/1000)+'K';
+  return fmt(n);
+}
+function catTotalsByTipo(tipo){
+  const totals = {};
+  movsVista(DB.movimientos).forEach(m=>{
+    if(m.tipo!==tipo) return;
+    totals[m.categoria] = (totals[m.categoria]||0) + (Number(m.monto)||0);
+  });
+  return totals;
+}
 function renderCategorias(){
-  const ing = DB.categorias.filter(c=>c.tipo==='ingreso' && catVista(c)===vistaActual).sort((a,b)=>(a.orden||0)-(b.orden||0));
-  const egr = DB.categorias.filter(c=>c.tipo==='egreso' && catVista(c)===vistaActual).sort((a,b)=>(a.orden||0)-(b.orden||0));
-  const render = (arr) => arr.length ? arr.map(c=>`<div class="catitem">
+  const totIng = catTotalsByTipo('ingreso');
+  const totEgr = catTotalsByTipo('egreso');
+  const ing = DB.categorias.filter(c=>c.tipo==='ingreso' && catVista(c)===vistaActual)
+    .sort((a,b)=>(totIng[b.nombre]||0)-(totIng[a.nombre]||0));
+  const egr = DB.categorias.filter(c=>c.tipo==='egreso' && catVista(c)===vistaActual)
+    .sort((a,b)=>(totEgr[b.nombre]||0)-(totEgr[a.nombre]||0));
+  const grid = (arr, totals) => `<div class="catgrid">${arr.map((c,i)=>`<div class="catcard" onclick='editCat(${JSON.stringify(c.id)})'>
+      <span class="rank">${i+1}</span>
       ${catBadgeHtml(c)}
-      <span class="nm">${c.nombre}</span>
-      <button class="iconbtn" onclick='editCat(${JSON.stringify(c.id)})'>✎</button>
-    </div>`).join('') : `<div class="empty">Sin categorías</div>`;
-  document.getElementById('catIngList').innerHTML = render(ing);
-  document.getElementById('catEgrList').innerHTML = render(egr);
+      <span class="nm">${c.nombre.replace(/\s*\(Familia\)/i,'')}</span>
+      <span class="amt2">${fmtShort(totals[c.nombre]||0)}</span>
+    </div>`).join('')}</div>`;
+  const section = (titulo, arr, totals) => arr.length ? `<div class="catcol"><h3>${titulo}</h3>${grid(arr, totals)}</div>` : '';
+  document.getElementById('catSections').innerHTML =
+    section('Ingresos', ing, totIng) + section('Egresos', egr, totEgr) ||
+    `<div class="empty">Sin categorías</div>`;
 }
 function setTipoCat(t){
   catTipo = t;
