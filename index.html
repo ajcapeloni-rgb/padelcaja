@@ -107,6 +107,12 @@ tbody tr:last-child td{border-bottom:none}
 .colorgrid{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.1rem}
 .cswatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
 .cswatch.on{border-color:var(--tx);transform:scale(1.15)}
+.iswatch{width:32px;height:32px;border-radius:10px;cursor:pointer;border:1.5px solid var(--bd2);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s}
+.iswatch:hover{background:rgba(0,0,0,.05)}
+.iswatch.on{border-color:var(--ac);background:var(--al);transform:scale(1.1)}
+.iswatch.none{font-size:11px;color:var(--t3);font-weight:700}
+.caticon{width:24px;height:24px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.catitem .caticon{width:28px;height:28px;border-radius:9px;font-size:15px}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--tx);color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:200}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .catcol h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);margin-bottom:10px}
@@ -362,6 +368,9 @@ tbody tr:last-child td{border-bottom:none}
     <div class="fl"><label>Color</label>
       <div class="colorgrid" id="catColors"></div>
     </div>
+    <div class="fl"><label>Ícono (opcional)</label>
+      <div class="colorgrid" id="catIconos"></div>
+    </div>
     <div class="ma">
       <button class="bc" onclick="closeCat()">Cancelar</button>
       <button class="bp" id="catDelBtn" style="display:none;background:var(--err)" onclick="borrarCategoria()">Eliminar</button>
@@ -392,11 +401,13 @@ const API = 'https://script.google.com/macros/s/AKfycbwjtRUW28ZtQD8vWlrFW7vm5xDt
 
 const COLORS = ['#2563EB','#0D9488','#7C3AED','#D97706','#0891B2','#65A30D','#DC2626','#EA580C','#B45309','#BE185D','#9333EA','#991B1B','#4B5563','#57534E'];
 const MEDIOS = ['Efectivo','Transferencia','Tarjeta','MercadoPago','Otro'];
+const ICONOS = ['🏠','🏫','🧒','🏥','⛽','🛒','🥦','🧹','🎾','📶','💡','🏢','🔥','🧑','🏟️','🧾','📱','🚗','💳','🐾','✂️','🍽️','🎓','⚕️','🎁','✈️','🎉','📺','🛠️','💊'];
 
 let DB = { movimientos: [], categorias: [], cierres: [], fudoVentas: [] };
 let movTipo = 'ingreso';
 let catTipo = 'ingreso';
 let catColor = COLORS[0];
+let catIcono = '';
 let PIN = localStorage.getItem('padelcaja_pin') || '';
 let excludedCats = new Set(JSON.parse(localStorage.getItem('padelcaja_excluded_cats') || '[]'));
 
@@ -520,7 +531,7 @@ function renderCatChecklist(){
     const safe = c.nombre.replace(/'/g,"\\'");
     return `<label class="cbchip ${checked?'':'off'}">
       <input type="checkbox" ${checked?'checked':''} onchange="toggleCatIncluded('${safe}', this.checked)">
-      <span class="catdot" style="background:${c.color}"></span>${c.nombre}
+      ${catBadgeHtml(c)}${c.nombre}
     </label>`;
   }).join('') : `<div class="empty">Sin categorías de egreso</div>`;
 }
@@ -567,6 +578,10 @@ function monthKey(iso){ return String(iso).slice(0,7); }
 function tst(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function catById(id){ return DB.categorias.find(c=>c.id===id); }
 function catByName(nombre){ return DB.categorias.find(c=>c.nombre===nombre); }
+function catBadgeHtml(cat){
+  if(cat && cat.icono) return `<span class="caticon" style="background:${cat.color}22">${cat.icono}</span>`;
+  return `<span class="catdot" style="background:${cat?cat.color:'#999'}"></span>`;
+}
 
 // ═══════════════════════════════════════
 //  API
@@ -652,7 +667,7 @@ function rowHtmlSimple(m){
   return `<tr>
     <td>${fmtDate(m.fecha)}</td>
     <td><span class="badge ${m.tipo==='ingreso'?'ing':'egr'}">${m.tipo==='ingreso'?'Ingreso':'Egreso'}</span></td>
-    <td><span class="catchip"><span class="catdot" style="background:${cat?cat.color:'#999'}"></span>${m.categoria}</span></td>
+    <td><span class="catchip">${catBadgeHtml(cat)}${m.categoria}</span></td>
     <td>${m.medioPago||''}</td>
     <td>${m.nota||''}</td>
     <td style="text-align:right" class="amt ${m.tipo==='ingreso'?'ing':'egr'}">${m.tipo==='ingreso'?'+':'-'}${fmt(m.monto)}</td>
@@ -668,7 +683,7 @@ function renderCategoriaSelects(){
   fCat.innerHTML = '<option value="">Todas</option>' + DB.categorias
     .filter(c=>catVista(c)===vistaActual)
     .slice().sort((a,b)=>(a.orden||0)-(b.orden||0))
-    .map(c=>`<option value="${c.nombre}">${c.nombre} (${c.tipo==='ingreso'?'Ingreso':'Egreso'})</option>`).join('');
+    .map(c=>`<option value="${c.nombre}">${c.icono?c.icono+' ':''}${c.nombre} (${c.tipo==='ingreso'?'Ingreso':'Egreso'})</option>`).join('');
   fCat.value = cur;
 
   const fCuenta = document.getElementById('fCuenta');
@@ -710,7 +725,7 @@ function renderMovimientos(){
     return `<tr>
       <td>${fmtDate(m.fecha)}</td>
       <td><span class="badge ${m.tipo==='ingreso'?'ing':'egr'}">${m.tipo==='ingreso'?'Ingreso':'Egreso'}</span></td>
-      <td><span class="catchip"><span class="catdot" style="background:${cat?cat.color:'#999'}"></span>${m.categoria}</span></td>
+      <td><span class="catchip">${catBadgeHtml(cat)}${m.categoria}</span></td>
       <td>${cuentaLabel(m.cuenta)}</td>
       <td>${m.cancha || '—'}</td>
       <td>${m.medioPago||''}</td>
@@ -747,7 +762,7 @@ function setTipoMov(t){
 function fillCategoriaOptions(){
   const sel = document.getElementById('movCategoria');
   const cats = DB.categorias.filter(c=>c.tipo===movTipo && catVista(c)===vistaActual).sort((a,b)=>(a.orden||0)-(b.orden||0));
-  sel.innerHTML = cats.map(c=>`<option value="${c.nombre}">${c.nombre}</option>`).join('') || '<option value="">(Creá una categoría primero)</option>';
+  sel.innerHTML = cats.map(c=>`<option value="${c.nombre}">${c.icono?c.icono+' ':''}${c.nombre}</option>`).join('') || '<option value="">(Creá una categoría primero)</option>';
 }
 function fillCuentaOptions(){
   const sel = document.getElementById('movCuenta');
@@ -912,7 +927,7 @@ function renderCategorias(){
   const ing = DB.categorias.filter(c=>c.tipo==='ingreso' && catVista(c)===vistaActual).sort((a,b)=>(a.orden||0)-(b.orden||0));
   const egr = DB.categorias.filter(c=>c.tipo==='egreso' && catVista(c)===vistaActual).sort((a,b)=>(a.orden||0)-(b.orden||0));
   const render = (arr) => arr.length ? arr.map(c=>`<div class="catitem">
-      <span class="catdot" style="background:${c.color}"></span>
+      ${catBadgeHtml(c)}
       <span class="nm">${c.nombre}</span>
       <button class="iconbtn" onclick='editCat(${JSON.stringify(c.id)})'>✎</button>
     </div>`).join('') : `<div class="empty">Sin categorías</div>`;
@@ -930,10 +945,19 @@ function renderColorSwatches(){
   ).join('');
 }
 function pickColor(c){ catColor = c; renderColorSwatches(); }
+function renderIconSwatches(){
+  const none = `<div class="iswatch none ${catIcono?'':'on'}" onclick="pickIcono('')" title="Sin ícono">—</div>`;
+  document.getElementById('catIconos').innerHTML = none + ICONOS.map(i=>
+    `<div class="iswatch ${i===catIcono?'on':''}" onclick="pickIcono('${i}')">${i}</div>`
+  ).join('');
+}
+function pickIcono(i){ catIcono = i; renderIconSwatches(); }
 function openCat(cat){
   setTipoCat(cat ? cat.tipo : 'ingreso');
   catColor = cat ? cat.color : COLORS[Math.floor(Math.random()*COLORS.length)];
+  catIcono = cat ? (cat.icono || '') : '';
   renderColorSwatches();
+  renderIconSwatches();
   document.getElementById('catId').value = cat ? cat.id : '';
   document.getElementById('catNombre').value = cat ? cat.nombre : '';
   document.getElementById('catDelBtn').style.display = cat ? 'block' : 'none';
@@ -944,7 +968,7 @@ function editCat(id){ const c = catById(id); if(c) openCat(c); }
 async function guardarCategoria(){
   const nombre = document.getElementById('catNombre').value.trim();
   if(!nombre){ tst('Ingresá un nombre'); return; }
-  const data = { id: document.getElementById('catId').value || undefined, nombre, tipo: catTipo, color: catColor, orden: DB.categorias.length+1, vista: vistaActual };
+  const data = { id: document.getElementById('catId').value || undefined, nombre, tipo: catTipo, color: catColor, orden: DB.categorias.length+1, vista: vistaActual, icono: catIcono };
   closeCat();
   tst('Guardando...');
   const r = await apiPost({ action:'saveCategoria', data });
@@ -1013,8 +1037,10 @@ function barList(obj, total, colorFn){
   if(!entries.length) return `<div class="empty">Sin datos este mes</div>`;
   return entries.map(([k,v])=>{
     const pct = total>0 ? Math.round(v/total*100) : 0;
+    const cat = catByName(k);
+    const prefix = cat && cat.icono ? cat.icono+' ' : '';
     return `<div class="barrow">
-      <div class="bhead"><span>${k}</span><b>${fmt(v)} (${pct}%)</b></div>
+      <div class="bhead"><span>${prefix}${k}</span><b>${fmt(v)} (${pct}%)</b></div>
       <div class="bartrack"><div class="barfill" style="width:${pct}%;background:${colorFn(k)}"></div></div>
     </div>`;
   }).join('');
@@ -1105,6 +1131,7 @@ document.getElementById('czFecha').value = todayStr();
 setTipoMov('ingreso');
 setTipoCat('ingreso');
 renderColorSwatches();
+renderIconSwatches();
 (async()=>{
   await ensurePin();
   loadAll();

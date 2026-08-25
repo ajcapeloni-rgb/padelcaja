@@ -88,6 +88,9 @@ function doPost(e) {
     else if (action === 'bulkUpdateMovCategoria') result = bulkUpdateMovCategoria(body.data);
     else if (action === 'bulkFixFecha')          result = bulkFixFecha(body.cuenta, body.fechaVieja, body.fechaNueva);
     else if (action === 'migrateAddVistaCategorias') result = migrateAddVistaCategorias();
+    else if (action === 'bulkDeleteByIds')      result = bulkDeleteByIds(body.ids);
+    else if (action === 'migrateAddIconoCategorias') result = migrateAddIconoCategorias();
+    else if (action === 'bulkSetIconos')        result = bulkSetIconos(body.updates);
     else result = { error: 'Acción no reconocida' };
   } catch (err) {
     result = { error: err.message };
@@ -376,7 +379,7 @@ function bulkDeleteFudoByRange(desde, hasta) {
 }
 
 // ── CATEGORIAS ────────────────────────────────
-const CAT_HEADERS = ['id','nombre','tipo','color','orden','vista'];
+const CAT_HEADERS = ['id','nombre','tipo','color','orden','vista','icono'];
 
 function saveCategoria(data) {
   const sheet = getOrCreateSheet('categorias', CAT_HEADERS);
@@ -462,6 +465,32 @@ function bulkFixFecha(cuenta, fechaVieja, fechaNueva) {
   sheet.getRange(1, 1, data.length, headers.length).setValues(data);
   sheet.getRange(2, fechaIdx + 1, data.length - 1, 1).setNumberFormat('@');
   return { ok: true, updated };
+}
+
+// Borra muchos movimientos de una sola vez dado un array de ids (en vez de
+// llamar deleteMovimiento cientos de veces, que es muy lento en hojas grandes).
+function bulkDeleteByIds(ids) {
+  const sheet = getSheet('movimientos');
+  if (!sheet || !ids || !ids.length) return { ok: true, deleted: 0 };
+  const idSet = new Set(ids);
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idIdx = headers.indexOf('id');
+  const fechaIdx = headers.indexOf('fecha');
+  const keep = [headers];
+  let deleted = 0;
+  for (let i = 1; i < data.length; i++) {
+    if (idSet.has(data[i][idIdx])) deleted++;
+    else keep.push(data[i]);
+  }
+  sheet.clearContents();
+  if (keep.length) {
+    sheet.getRange(1, 1, keep.length, headers.length).setValues(keep);
+    if (keep.length > 1) {
+      sheet.getRange(2, fechaIdx + 1, keep.length - 1, 1).setNumberFormat('@');
+    }
+  }
+  return { ok: true, deleted };
 }
 
 // Migración única: le agrega la columna 'vista' a categorías que no la
@@ -564,4 +593,53 @@ function deleteRowByField(sheetName, field, value) {
       sheet.deleteRow(i + 1);
     }
   }
+}
+
+// Migración única: le agrega la columna 'icono' a categorías que no la tengan
+// todavía (queda vacía; se completa a mano o vía bulkSetIconos).
+function migrateAddIconoCategorias() {
+  const sheet = getSheet('categorias');
+  if (!sheet) return { ok: true, migrated: 0 };
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 1) return { ok: true, migrated: 0 };
+  const headers = data[0];
+  if (headers.indexOf('icono') !== -1) return { ok: true, migrated: 0, already: true };
+
+  const newHeaders = headers.slice();
+  newHeaders.push('icono');
+  const newRows = data.slice(1).map(row => {
+    const newRow = row.slice();
+    newRow.push('');
+    return newRow;
+  });
+  sheet.clearContents();
+  sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+  if (newRows.length) {
+    sheet.getRange(2, 1, newRows.length, newHeaders.length).setValues(newRows);
+  }
+  return { ok: true, migrated: newRows.length };
+}
+
+// Setea el emoji de icono de varias categorías existentes de una sola vez,
+// dado un array [{id, icono}].
+function bulkSetIconos(updates) {
+  if (!updates || !updates.length) return { ok: true, updated: 0 };
+  const sheet = getSheet('categorias');
+  if (!sheet) return { ok: true, updated: 0 };
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idIdx = headers.indexOf('id');
+  const iconoIdx = headers.indexOf('icono');
+  if (iconoIdx === -1) return { error: 'Falta la columna icono — corré migrateAddIconoCategorias primero' };
+  const byId = {};
+  updates.forEach(u => { byId[u.id] = u.icono; });
+  let updated = 0;
+  for (let i = 1; i < data.length; i++) {
+    const id = data[i][idIdx];
+    if (byId.hasOwnProperty(id)) {
+      sheet.getRange(i + 1, iconoIdx + 1).setValue(byId[id]);
+      updated++;
+    }
+  }
+  return { ok: true, updated };
 }
