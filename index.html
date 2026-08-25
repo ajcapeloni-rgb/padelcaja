@@ -107,12 +107,15 @@ tbody tr:last-child td{border-bottom:none}
 .colorgrid{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.1rem}
 .cswatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
 .cswatch.on{border-color:var(--tx);transform:scale(1.15)}
-.iswatch{width:32px;height:32px;border-radius:10px;cursor:pointer;border:1.5px solid var(--bd2);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .15s}
+.iswatch{width:38px;height:38px;border-radius:11px;cursor:pointer;border:1.5px solid var(--bd2);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:19px;transition:all .15s}
 .iswatch:hover{background:rgba(0,0,0,.05)}
 .iswatch.on{border-color:var(--ac);background:var(--al);transform:scale(1.1)}
 .iswatch.none{font-size:11px;color:var(--t3);font-weight:700}
-.caticon{width:24px;height:24px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
-.catitem .caticon{width:28px;height:28px;border-radius:9px;font-size:15px}
+.caticon{width:26px;height:26px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+.catitem{padding:12px 14px;gap:14px;border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);transition:all .15s}
+.catitem:hover{box-shadow:0 4px 14px rgba(0,0,0,.08);transform:translateY(-1px)}
+.catitem .caticon{width:48px;height:48px;border-radius:15px;font-size:26px;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.06)}
+.catitem .nm{font-size:14.5px;font-weight:700}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--tx);color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:all .25s;z-index:200}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .catcol h3{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:var(--t3);margin-bottom:10px}
@@ -579,7 +582,7 @@ function tst(msg){ const t=document.getElementById('toast'); t.textContent=msg; 
 function catById(id){ return DB.categorias.find(c=>c.id===id); }
 function catByName(nombre){ return DB.categorias.find(c=>c.nombre===nombre); }
 function catBadgeHtml(cat){
-  if(cat && cat.icono) return `<span class="caticon" style="background:${cat.color}22">${cat.icono}</span>`;
+  if(cat && cat.icono) return `<span class="caticon" style="background:${cat.color}38">${cat.icono}</span>`;
   return `<span class="catdot" style="background:${cat?cat.color:'#999'}"></span>`;
 }
 
