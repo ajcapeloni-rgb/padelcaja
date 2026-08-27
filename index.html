@@ -192,6 +192,7 @@ tbody tr:last-child td{border-bottom:none}
       <div class="sc stat egr"><div class="lbl">Egresos del mes</div><div class="val" id="dMesEgr">$0</div></div>
       <div class="sc stat bal"><div class="lbl">Balance del mes</div><div class="val" id="dMesBal">$0</div></div>
     </div>
+    <div id="dashCatGrid"></div>
     <div class="sechdr">
       <h2>Últimos movimientos</h2>
       <div style="display:flex;gap:8px">
@@ -649,10 +650,12 @@ function renderDashboard(){
   renderCuentaSelectors();
   const hoy = todayStr(), mes = monthKey(hoy);
   let hIng=0,hEgr=0,mIng=0,mEgr=0;
-  movsCuenta(movsVista(movsNegocio(DB.movimientos))).forEach(m=>{
+  const movsFiltrados = movsCuenta(movsVista(movsNegocio(DB.movimientos)));
+  const movsMes = [];
+  movsFiltrados.forEach(m=>{
     const monto = Number(m.monto)||0;
     if(m.fecha === hoy){ if(m.tipo==='ingreso') hIng+=monto; else hEgr+=monto; }
-    if(monthKey(m.fecha) === mes){ if(m.tipo==='ingreso') mIng+=monto; else mEgr+=monto; }
+    if(monthKey(m.fecha) === mes){ if(m.tipo==='ingreso') mIng+=monto; else mEgr+=monto; movsMes.push(m); }
   });
   document.getElementById('dHoyIng').textContent = fmt(hIng);
   document.getElementById('dHoyEgr').textContent = fmt(hEgr);
@@ -660,6 +663,7 @@ function renderDashboard(){
   document.getElementById('dMesIng').textContent = fmt(mIng);
   document.getElementById('dMesEgr').textContent = fmt(mEgr);
   document.getElementById('dMesBal').textContent = fmt(mIng-mEgr);
+  document.getElementById('dashCatGrid').innerHTML = catGridHtml(movsMes);
 
   const ultimos = [...movsCuenta(movsVista(movsNegocio(DB.movimientos)))].sort((a,b)=> (b.fecha+b.ts).localeCompare(a.fecha+a.ts)).slice(0,10);
   const tbl = document.getElementById('dashTbl');
@@ -933,21 +937,19 @@ function fmtShort(n){
   if(abs>=1000) return '$'+Math.round(n/1000)+'K';
   return fmt(n);
 }
-function catTotalsByTipo(tipo){
-  const totals = {};
-  movsVista(DB.movimientos).forEach(m=>{
-    if(m.tipo!==tipo) return;
-    totals[m.categoria] = (totals[m.categoria]||0) + (Number(m.monto)||0);
+// Arma las tarjetas de categoria (ordenadas de mayor a menor monto) mas el
+// total al pie, a partir de una lista de movimientos YA FILTRADA (por vista,
+// cuenta, mes, etc. segun quien la llame). Se usa tanto en Categorias
+// (todo el historico) como en el Dashboard (solo el mes actual).
+function catGridHtml(movsList){
+  const totIng = {}, totEgr = {};
+  movsList.forEach(m=>{
+    const bucket = m.tipo==='ingreso' ? totIng : totEgr;
+    bucket[m.categoria] = (bucket[m.categoria]||0) + (Number(m.monto)||0);
   });
-  return totals;
-}
-function renderCategorias(){
-  const totIng = catTotalsByTipo('ingreso');
-  const totEgr = catTotalsByTipo('egreso');
-  const ing = DB.categorias.filter(c=>c.tipo==='ingreso' && catVista(c)===vistaActual)
-    .sort((a,b)=>(totIng[b.nombre]||0)-(totIng[a.nombre]||0));
-  const egr = DB.categorias.filter(c=>c.tipo==='egreso' && catVista(c)===vistaActual)
-    .sort((a,b)=>(totEgr[b.nombre]||0)-(totEgr[a.nombre]||0));
+  const cats = DB.categorias.filter(c=>catVista(c)===vistaActual);
+  const ing = cats.filter(c=>c.tipo==='ingreso').sort((a,b)=>(totIng[b.nombre]||0)-(totIng[a.nombre]||0));
+  const egr = cats.filter(c=>c.tipo==='egreso').sort((a,b)=>(totEgr[b.nombre]||0)-(totEgr[a.nombre]||0));
   const grid = (arr, totals) => `<div class="catgrid">${arr.map((c,i)=>`<div class="catcard" onclick='editCat(${JSON.stringify(c.id)})'>
       <span class="rank">${i+1}</span>
       ${catBadgeHtml(c)}
@@ -961,9 +963,11 @@ function renderCategorias(){
       <div class="cattotal">Total ${titulo.toLowerCase()} <b class="amt ${cls}">${fmt(suma)}</b></div>
     </div>`;
   };
+  return section('Ingresos', ing, totIng, 'ing') + section('Egresos', egr, totEgr, 'egr');
+}
+function renderCategorias(){
   document.getElementById('catSections').innerHTML =
-    section('Ingresos', ing, totIng, 'ing') + section('Egresos', egr, totEgr, 'egr') ||
-    `<div class="empty">Sin categorías</div>`;
+    catGridHtml(movsVista(DB.movimientos)) || `<div class="empty">Sin categorías</div>`;
 }
 function setTipoCat(t){
   catTipo = t;
