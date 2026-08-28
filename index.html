@@ -125,8 +125,9 @@ tbody tr:last-child td{border-bottom:none}
 .catcard .rank{position:absolute;top:3px;left:5px;font-size:8.5px;font-weight:800;color:var(--t3)}
 .cattotal{display:flex;align-items:center;justify-content:space-between;margin-top:5px;padding:6px 12px;border-radius:10px;background:rgba(0,0,0,.03);border:1px solid var(--bd);font-size:11.5px;font-weight:700;color:var(--t2)}
 .cattotal b{font-size:13px}
-.movtotal{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:11px 16px;border-radius:12px;background:var(--bg2);border:1px solid var(--bd);font-size:13px;font-weight:700;color:var(--t2)}
-.movtotal b{font-size:17px}
+#mov{padding-bottom:64px}
+.movtotal{display:flex;align-items:center;justify-content:space-between;position:fixed;left:0;right:0;bottom:0;padding:13px 16px;padding-bottom:calc(13px + env(safe-area-inset-bottom));background:var(--bg2);border-top:1px solid var(--bd);box-shadow:0 -4px 16px rgba(0,0,0,.08);font-size:13px;font-weight:700;color:var(--t2);z-index:50}
+.movtotal b{font-size:18px}
 .movtotal:empty{display:none}
 .barrow{margin-bottom:10px}
 .barrow .bhead{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
