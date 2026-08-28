@@ -125,6 +125,9 @@ tbody tr:last-child td{border-bottom:none}
 .catcard .rank{position:absolute;top:3px;left:5px;font-size:8.5px;font-weight:800;color:var(--t3)}
 .cattotal{display:flex;align-items:center;justify-content:space-between;margin-top:5px;padding:6px 12px;border-radius:10px;background:rgba(0,0,0,.03);border:1px solid var(--bd);font-size:11.5px;font-weight:700;color:var(--t2)}
 .cattotal b{font-size:13px}
+.movtotal{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:11px 16px;border-radius:12px;background:var(--bg2);border:1px solid var(--bd);font-size:13px;font-weight:700;color:var(--t2)}
+.movtotal b{font-size:17px}
+.movtotal:empty{display:none}
 .barrow{margin-bottom:10px}
 .barrow .bhead{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px}
 .barrow .bhead b{font-weight:700}
@@ -231,6 +234,7 @@ tbody tr:last-child td{border-bottom:none}
       <thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Cuenta</th><th>Cancha</th><th>Medio</th><th>Nota</th><th style="text-align:right">Monto</th><th></th></tr></thead>
       <tbody id="movTbl"></tbody>
     </table></div>
+    <div class="movtotal" id="movTotalBar"></div>
   </div>
 
   <!-- ═══ CIERRE DE CAJA ═══ -->
@@ -741,6 +745,14 @@ function renderMovimientos(){
       <td><button class="iconbtn" onclick="editMov('${m.id}')">✎</button></td>
     </tr>`;
   }).join('') : `<tr><td colspan="9" class="empty">No hay movimientos con estos filtros</td></tr>`;
+
+  const totalBar = document.getElementById('movTotalBar');
+  if(!list.length){ totalBar.innerHTML = ''; return; }
+  const tipoFiltro = document.getElementById('fTipo').value;
+  const neto = list.reduce((s,m)=> s + (m.tipo==='ingreso' ? (Number(m.monto)||0) : -(Number(m.monto)||0)), 0);
+  const cls = tipoFiltro==='ingreso' ? 'ing' : tipoFiltro==='egreso' ? 'egr' : (neto>=0?'ing':'egr');
+  const label = tipoFiltro==='ingreso' ? 'Total ingresos' : tipoFiltro==='egreso' ? 'Total egresos' : 'Total (balance)';
+  totalBar.innerHTML = `<span>${label} — ${list.length} mov.</span><b class="amt ${cls}">${fmt(neto)}</b>`;
 }
 
 ['fDesde','fHasta','fTipo','fCat','fCuenta','fMedio'].forEach(id=>{
